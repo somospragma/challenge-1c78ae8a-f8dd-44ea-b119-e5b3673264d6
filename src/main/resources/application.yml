@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: gestion-creditos
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/creditos_db
+    username: creditos_user
+    password: creditos_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 50
+  
+  mvc:
+    async:
+      request-timeout: 5000
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api/creditos
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      buroCircuitBreaker:
+        baseConfig: default
+        waitDurationInOpenState: 10s
+      coreCircuitBreaker:
+        baseConfig: default
+        waitDurationInOpenState: 15s
+  
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.util.concurrent.TimeoutException
+          - com.credito.gestion.infrastructure.exception.TimeoutException
+    instances:
+      buroRetry:
+        baseConfig: default
+
+logging:
+  level:
+    org.springframework: INFO
+    com.credito.gestion: DEBUG
+    io.github.resilience4j: INFO
+    org.hibernate: ERROR
+
+app:
+  external-services:
+    buro-riesgos:
+      url: http://localhost:8081/api/buro
+      timeout: 1500
+    core-bancario:
+      url: http://localhost:8082/api/core
+      timeout: 2000
+    antifraude:
+      url: http://localhost:8083/api/antifraude
+      timeout: 1000
